@@ -56,7 +56,11 @@ in at least 4 of 5 tries.
 ---
 
 ## 4. Something about your chunks
+At least 4 of 5 sampled chunks should be self-contained enough to answer a question without needing the surrounding chunk.
 
+**Why this target:**
+
+The campus_life corpus is made up of short posts where useful information is usually contained in a sentence or paragraph. After keeping short headings with the paragraph that follows them, the sampled chunks are generally complete enough to understand on their own.
 <!-- YOU WRITE THIS ONE.
 
      How would you know if your chunks were the right size? Name something
@@ -77,8 +81,14 @@ in at least 4 of 5 tries.
 
 ---
 
-## 5. Your choice
 
+## 5. Source attribution is correct
+
+For at least 4 of my 5 test questions, the answer names a source document that actually contains information supporting the answer.
+
+**Why this target:**
+
+My corpus has several documents that can be retrieved for a question, but retrieval alone does not guarantee that every retrieved document supports the final answer. I want the source named in the answer to be one that actually contains the information being used.
 <!-- YOU WRITE THIS ONE TOO.
 
      Pick something you actually care about getting right. It could be about
