@@ -39,6 +39,13 @@ Every answer the system produces names at least one source document.
 ---
 
 ## 3. The relevance gate stops out-of-corpus questions
+At least 4 of 5 out-of-scope questions should be rejected with an
+"I don't have enough information about that" response.
+
+**Why this target:**
+
+The system should avoid answering questions that are outside the
+campus_life corpus instead of generating unsupported answers.
 
 When I ask a question my documents clearly don't cover, the relevance gate
 stops it and the system returns "I don't have enough information about that" —
