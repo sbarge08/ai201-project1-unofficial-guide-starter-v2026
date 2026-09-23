@@ -1,121 +1,261 @@
 # The Unofficial Guide
 
-## Unit 1
+A small retrieval-augmented generation (RAG) system that answers questions about campus life using a local document corpus.
 
-## What This Does
+## Project Overview
 
-I picked the `campus_life` corpus, which contains short posts about campus life, housing, dining, courses, transportation, and other student information.
+This project builds a question-answering system over a `campus_life` corpus. The pipeline loads campus-life documents, splits them into chunks, embeds the chunks, retrieves relevant chunks for a question, checks whether the retrieved information is relevant enough to answer, and then generates a short grounded answer with source attribution.
 
-The system loads these documents, splits them into meaningful chunks, creates embeddings, and searches for the chunks most relevant to a student's question. It then uses the retrieved information to generate a grounded answer and name the source document.
+The main goal is not just to produce an answer, but to make sure the answer is supported by the retrieved documents and that questions outside the corpus are rejected instead of answered from general knowledge.
 
-If the question is outside the corpus, a relevance gate stops the system from calling the language model.
+## Pipeline
 
-## Chunking Strategy
+The system uses these main stages:
 
-**Chunk size:** Variable, based on paragraph boundaries.
+1. Load the `campus_life` documents.
+2. Split documents into paragraph-level chunks.
+3. Embed the chunks using `all-MiniLM-L6-v2`.
+4. Store and retrieve the chunks using the vector store.
+5. Apply a relevance cutoff of `0.6`.
+6. Generate a short answer using the retrieved documents.
+7. Require the generated answer to name the supporting source document.
 
-**Overlap:** None.
+The corpus contains 88 documents and produced 170 chunks.
 
-I changed the starter's fixed-size character-window approach because the `campus_life` documents are mostly short posts where the useful information is usually contained in one sentence or paragraph.
+The final chunking strategy keeps short heading/title paragraphs attached to the paragraph that follows them. This helps prevent a heading from being separated from the information it describes.
 
-I split documents at paragraph boundaries instead of cutting them at an arbitrary character count. I also kept short heading/title paragraphs together with the paragraph that follows them. This prevents a short heading from being separated from the information that explains it.
+## Acceptance Criteria
 
-For the `campus_life` corpus, this produced 170 chunks from 88 documents, with an average of 163 characters per chunk. The shortest chunk was 65 characters and the longest was 397 characters.
+The five acceptance criteria were written before the Unit 1 evaluation.
 
-The function that produces these chunks is `chunker.py::split_documents`.
+### 1. Retrieved chunks contain the answer
 
-## Sample Chunks
+For at least 4 of my 5 test questions, the retrieved chunks include one that contains the answer.
 
-**Chunk 1** — source: `admin_add_drop_deadline.txt#0` — produced by: `chunker.py::split_documents`
+This target reflects the fact that the `campus_life` corpus contains short posts where the answer is usually contained in one sentence or paragraph. A 4/5 target checks that retrieval works for most test questions without requiring every possible question to succeed.
 
-> On the add/drop deadline
->
-> You can add a course through the end of the second week. Dropping is a longer window — through the end of week six — but a drop after week two shows as a W on your transcript. Nothing anywhere on the registrar's site says this plainly, and students find out from each other.
+### 2. Every answer names a source
 
-**Chunk 2** — source: `advising_registration.txt#1` — produced by: `chunker.py::split_documents`
+Every answer the system produces names at least one source document.
 
-> Registration times are staggered by credit hours, same as the housing lottery. Popular courses fill in the first two days.
+Source attribution is part of the intended behavior of the generation step. Since answers are supposed to come from retrieved documents, every generated answer should identify where its information came from.
 
-**Chunk 3** — source: `course_cs_340_workload.txt#0` — produced by: `chunker.py::split_documents`
+### 3. The relevance gate stops out-of-corpus questions
 
-> Workload for CS 340 Databases
->
-> People keep asking so: 6 hours a week early, 15 in the last three weeks when the project lands. That's real time, not optimistic time.
+At least 4 of 5 out-of-scope questions should be rejected with an "I don't have enough information about that" response.
 
-**Chunk 4** — source: `course_hist_118_exams.txt#1` — produced by: `chunker.py::split_documents`
+The system should avoid answering questions that are outside the `campus_life` corpus instead of generating unsupported answers. A 4/5 target checks that the relevance gate is useful for unrelated questions without requiring every possible unrelated question to behave identically.
 
-> The essay rubric is posted in week 2 and it's followed exactly — read it early.
+### 4. Something about the chunks
 
-**Chunk 5** — source: `course_stat_150_exams.txt#0` — produced by: `chunker.py::split_documents`
+At least 4 of 5 sampled chunks should be self-contained enough to answer a question without needing the surrounding chunk.
 
-> STAT 150 Applied Statistics — assessment
->
-> Three equally weighted midterms, no final. No curve, but the lowest midterm is dropped.
+The corpus consists of short posts where useful information is usually contained in a sentence or paragraph. Keeping short headings with the paragraph that follows them makes the resulting chunks more understandable on their own.
 
-## Sample Answer
+### 5. Source attribution is correct
 
-**Question:** How much does laundry cost at Old Brewhouse?
+For at least 4 of my 5 test questions, the answer names a source document that actually contains information supporting the answer.
 
-**Answer:** Laundry costs $1.50 for a wash and $1.50 for a dry at Old Brewhouse (housing_old_brewhouse.txt and housing_old_brewhouse_laundry.txt).
+Retrieval alone does not guarantee that every retrieved document supports the final answer. This criterion checks that the source named in the final answer actually supports the information being used.
 
-**Source:** `housing_old_brewhouse.txt` and `housing_old_brewhouse_laundry.txt`
+# Unit 2
 
-**Relevance cutoff:** 0.6
+## Run Log — Before
 
-## Unit 2
+The baseline evaluation was run with:
 
-### Before Evaluation
+- Corpus: `campus_life`
+- Documents: 88
+- Chunks: 170
+- Embedding model: `all-MiniLM-L6-v2`
+- Retrieval top-k: 5
+- Relevance cutoff: 0.6
+- In-scope questions: 5
+- Runs per in-scope question: 3
+- Caching: off
+- Out-of-scope questions: 5
 
-I ran the five test questions three times before making my Unit 2 change.
+The baseline evaluation was recorded in:
 
-All five in-scope questions passed on all three runs.
+`results/run_2026-09-21_1903_before.md`
 
-The five out-of-scope questions were all rejected by the relevance gate. The gate refused 5 out of 5 out-of-scope questions.
+The five in-scope questions were:
 
-The best retrieval distances for the five in-scope questions were:
+1. What time should students go to North Kitchen to avoid the busiest period between classes?
+2. How much does laundry cost at Old Brewhouse?
+3. How far ahead can students book a group study room?
+4. How often does the campus shuttle run on weekdays?
+5. What happens to junior and senior housing lottery applicants?
 
-| Question | Best distance |
+### Before results
+
+| Measure | Result |
 |---|---:|
-| North Kitchen busiest period | 0.298 |
-| Old Brewhouse laundry cost | 0.221 |
-| Group study room booking | 0.236 |
-| Campus shuttle frequency | 0.182 |
-| Junior and senior housing lottery | 0.262 |
+| In-scope questions passing | 5/5 |
+| In-scope runs passing | 15/15 |
+| Out-of-scope questions rejected | 5/5 |
+| Runs per in-scope question | 3 |
 
-### What I Changed
+The baseline already met the numerical targets used by the evaluation.
 
-I changed the grounding instructions in `generate.py`.
+### Real baseline outputs
 
-The original instructions already told the model to use only the provided documents and name the source filename. I made the instructions more specific by telling it to use information directly supported by the retrieved documents, avoid filling in missing details, and avoid combining details from different documents unless the documents support the same answer.
+**North Kitchen**
 
-I made this change because the system is supposed to give answers grounded in the retrieved corpus rather than relying on information from outside the corpus.
+> Students should go before 11:45 to avoid the busiest period between classes.
+> Source: `dining_north_kitchen_followup.txt`
 
-### After Evaluation
+**Old Brewhouse laundry**
 
-I ran the same five questions three times after the change.
+> Laundry costs $1.50 per wash and $1.50 per dry.
+> Sources included `housing_old_brewhouse.txt` and `housing_old_brewhouse_laundry.txt`.
 
-All five in-scope questions passed on all three runs.
+**Group study rooms**
 
-The relevance gate also rejected all five out-of-scope questions.
+> Students can book a group study room up to two weeks ahead.
+> Source: `study_group_rooms.txt`
+
+**Campus shuttle**
+
+> The campus shuttle runs every 20 minutes on weekdays.
+> Source: `transit_shuttle.txt`
+
+**Housing lottery**
+
+> Rising sophomores are randomly assigned a number, while juniors and seniors are ordered by accumulated credit hours, with random tie-breaking when needed.
+> Source: `admin_housing_lottery.txt`
+
+The out-of-scope questions were rejected by the relevance gate rather than answered from outside knowledge.
+
+## Verdicts
+
+### Criterion 1 — Retrieved chunks contain the answer: Pass
+
+All five in-scope questions passed the answer check on all three runs.
+
+### Criterion 2 — Every answer names a source: Pass
+
+The generated answers identified source documents for the information used in the answers.
+
+### Criterion 3 — The relevance gate stops out-of-corpus questions: Pass
+
+The relevance gate rejected all five out-of-scope questions.
+
+### Criterion 4 — Something about the chunks: Pass
+
+The sampled chunks were understandable without needing the surrounding chunk. The paragraph-level chunking strategy also keeps short headings attached to the paragraph that follows them.
+
+### Criterion 5 — Source attribution is correct: Pass
+
+For the five test questions, the named source documents contained information supporting the answers.
+
+## Diagnoses
+
+The before evaluation did not expose a failing numerical criterion. Retrieval was finding supporting information for the five tested questions, and the relevance gate rejected the five out-of-scope questions.
+
+Because the measured criteria were already passing, changing the retrieval cutoff, chunking strategy, or test questions would not have been justified by a measured failure.
+
+The main area I examined was answer grounding. Even when retrieval finds relevant documents, the generation step still needs to stay within the retrieved evidence and avoid adding unsupported details.
+
+The diagnosis therefore focused on the generation instructions rather than changing the retrieval pipeline.
+
+## The Improvement
+
+I made one change to `generate.py`.
+
+I tightened the grounding instructions given to the language model.
+
+The updated instructions tell the model to:
+
+- use only information directly supported by the retrieved documents;
+- avoid guessing or filling in missing information;
+- base important parts of the answer on the document that supports it;
+- name the exact source filename;
+- avoid combining details from different documents unless the documents support the same answer;
+- keep the answer brief.
+
+The purpose of this change was to make the generation step more explicitly grounded in the retrieved evidence.
+
+The code change was committed before running the after evaluation.
+
+## After Evaluation
+
+The same five in-scope questions were evaluated again using the same evaluation process.
+
+The after evaluation was recorded in:
+
+`results/run_2026-09-21_1906_after.md`
 
 | Measure | Before | After |
 |---|---:|---:|
 | In-scope questions passing | 5/5 | 5/5 |
+| In-scope runs passing | 15/15 | 15/15 |
 | Out-of-scope questions rejected | 5/5 | 5/5 |
 | Runs per in-scope question | 3 | 3 |
 
-The main change was to make the grounding instructions more explicit. The existing tests were already passing before the change, so the after evaluation did not show a change in the pass rate. The change was intended to make the answer-generation behavior more clearly grounded in the retrieved evidence.
+All five in-scope questions passed on all three after runs.
+
+The relevance gate again rejected all five out-of-scope questions.
+
+The measured pass rates therefore did not change. The improvement made the grounding requirement more explicit, but the existing test set was already passing before the change, so the evaluation did not demonstrate a higher numerical score.
+
+### Real after outputs
+
+**North Kitchen**
+
+> Students should go before 11:45 to avoid the busiest period between classes.
+> Source: `dining_north_kitchen_followup.txt`
+
+**Old Brewhouse laundry**
+
+> Laundry costs $1.50 per wash and $1.50 per dry.
+> Sources included `housing_old_brewhouse.txt` and `housing_old_brewhouse_laundry.txt`.
+
+**Group study rooms**
+
+> Students can book a group study room up to two weeks ahead.
+> Source: `study_group_rooms.txt`
+
+**Campus shuttle**
+
+> The campus shuttle runs every 20 minutes on weekdays.
+> Source: `transit_shuttle.txt`
+
+**Housing lottery**
+
+> Rising sophomores are randomly assigned a number, while juniors and seniors are ordered by accumulated credit hours, with random tie-breaking when needed.
+> Source: `admin_housing_lottery.txt`
+
+## What’s Still Broken
+
+The current evaluation does not demonstrate whether the grounding change improves performance when retrieved documents are incomplete, ambiguous, or conflicting.
+
+The five in-scope questions already passed before the change, so the current test set has limited ability to show an improvement in pass rate.
+
+The current test set is also small and does not establish how the system behaves across a much larger variety of questions.
+
+The evaluation does not yet include enough adversarial cases where the model could be tempted to invent information when the retrieved evidence is incomplete.
+
+## What I’d Do Differently
+
+I would add more difficult evaluation questions before making another improvement.
+
+In particular, I would test questions where:
+
+- two retrieved documents contain different details;
+- the retrieved documents contain only part of the answer;
+- the question is related to the corpus but cannot actually be answered from the retrieved text;
+- several documents are relevant but only one directly supports the final answer;
+- the model has an opportunity to fill in a missing detail from general knowledge.
+
+I would also add tests specifically designed to measure whether the model invents information when the retrieved evidence is incomplete.
+
+That would make the grounding improvement easier to measure because the baseline would have more opportunities to reveal a generation problem.
 
 ## How I Used AI
 
-**1.**
+I used AI as a development and debugging assistant.
 
-I used AI when I got stuck understanding how the starter `chunker.py` worked. I used it to explain what the existing code was doing and to help me think through a better way to split the campus-life posts. I then changed `chunker.py` and tested the chunks myself with the provided commands.
+I used it to help reason through the RAG pipeline, inspect and explain Python errors, improve the chunking strategy, develop evaluation questions, write and refine the scorer, interpret evaluation results, and improve the grounding instructions.
 
-**2.**
-
-I used AI when I was testing the question-answering system. It helped me decide which questions to test and helped me interpret the retrieval distances and source documents. I ran the commands myself and used the results to decide that the 0.6 relevance cutoff was working for my test questions.
-
-**3.**
-
-For Unit 2, I used AI to help me understand the evaluation output and troubleshoot the scorer format. I checked the starter `run_eval.py` to make sure my `scorer.py` used the required `judge(question, expects, answer, results)` function. I then ran the before and after evaluations myself.
+I made the final implementation decisions and ran the evaluation commands myself. The evaluation results in this repository come from the actual project runs rather than from AI-generated claims about what the system would do.
